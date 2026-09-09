@@ -255,22 +255,7 @@
       <button class="btn btn-secondary" onclick="showScreen('screen-settings')" style="border-color:#94a3b8; color:#475569;">設定（難易度変更）</button>
     </div>
 
-    <!-- 2. 設定画面 -->
-    <div id="screen-settings" class="screen">
-      <h2>設定</h2>
-      <div class="form-group">
-        <label>記憶力テストの難易度</label>
-        <select id="difficulty-select" onchange="saveSettings()">
-          <option value="EASY">EASY (5個)</option>
-          <option value="NORMAL" selected>NORMAL (8個)</option>
-          <option value="HARD">HARD (12個)</option>
-          <option value="EXPERT">EXPERT (16個)</option>
-        </select>
-      </div>
-      <div style="flex:1;"></div>
-      <button class="btn btn-primary" onclick="showScreen('screen-home')">設定を保存して戻る</button>
-    </div>
-
+    
     <!-- 3. 情報入力画面 -->
     <div id="screen-input" class="screen">
       <h2>目的と優先度の確認</h2>
