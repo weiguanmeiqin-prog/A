@@ -1,0 +1,5 @@
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  shared_preferences: ^2.2.2 # 簡易データ保存用
