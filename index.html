@@ -158,20 +158,22 @@
     }
 
     .word-chip {
-      padding: 10px 4px;
+      padding: 12px 4px;
       background: #e2e8f0;
       border: 2px solid transparent;
       border-radius: 8px;
       text-align: center;
       cursor: pointer;
-      font-size: 13px;
+      font-size: 14px;
       user-select: none;
+      transition: all 0.2s;
     }
 
     .word-chip.selected {
       background: #ccfbf1;
       border-color: var(--primary-color);
       font-weight: bold;
+      color: var(--primary-color);
     }
 
     .tap-area {
@@ -181,18 +183,20 @@
       align-items: center;
       border-radius: 12px;
       background: #e2e8f0;
-      font-size: 22px;
+      font-size: 20px;
       font-weight: bold;
       text-align: center;
       cursor: pointer;
       padding: 20px;
       user-select: none;
-      min-height: 180px;
+      min-height: 220px;
+      transition: background-color 0.2s;
     }
 
     .tap-area.ready {
       background: #86efac;
-      font-size: 36px;
+      color: #166534;
+      font-size: 28px;
     }
 
     .stat-box {
@@ -249,13 +253,20 @@
         <div class="stat-item"><p>平均記憶力</p><b id="stat-memory">-</b></div>
       </div>
 
+      <div class="form-group" style="margin-top: 8px;">
+        <label>難易度設定</label>
+        <select id="difficulty-select" onchange="saveSettings()">
+          <option value="EASY">かんたん（3語選択 / 5秒記憶）</option>
+          <option value="NORMAL" selected>ふつう（5語選択 / 5秒記憶）</option>
+          <option value="HARD">むずかしい（6語選択 / 3秒記憶）</option>
+        </select>
+      </div>
+
       <div style="flex:1;"></div>
       <button class="btn btn-primary" onclick="showScreen('screen-input')">情報フィルターをはじめる</button>
       <button class="btn btn-secondary" onclick="showScreen('screen-history')">履歴・データ出力</button>
-  
     </div>
 
-    
     <!-- 3. 情報入力画面 -->
     <div id="screen-input" class="screen">
       <h2>目的と優先度の確認</h2>
@@ -297,6 +308,7 @@
         </div>
       </div>
       <button class="btn btn-primary" onclick="processInput()">確認画面へ</button>
+      <button class="btn btn-secondary" onclick="showScreen('screen-home')">キャンセル</button>
     </div>
 
     <!-- 4. 30秒タイマー画面 -->
@@ -326,7 +338,7 @@
         <div class="grid-container" id="target-words-container"></div>
       </div>
       <div id="memory-answer-phase" style="display:none;">
-        <p class="subtitle">表示された単語を選んでください</p>
+        <p class="subtitle">さきほど表示された単語を選んでください</p>
         <div class="grid-container" id="choice-words-container"></div>
         <button class="btn btn-primary" onclick="finishMemoryTest()">次へ（反応速度テスト）</button>
       </div>
@@ -336,7 +348,7 @@
     <div id="screen-reaction" class="screen">
       <h2>反応速度チェック</h2>
       <div class="tap-area" id="tap-area" onclick="handleTap()">
-        タップして開始
+        画面が緑色になったら<br>素早くタップしてください！<br><br><b>[ タップして開始 ]</b>
       </div>
     </div>
 
@@ -367,10 +379,27 @@
   </div>
 
   <script>
+    // --- 単語プール ---
+    const WORD_POOL = [
+      "りんご", "みかん", "バナナ", "ぶどう", "いちご", "すいか", "メロン", "キウイ",
+      "いぬ", "ねこ", "うさぎ", "ライオン", "ゾウ", "キリン", "パンダ", "コアラ",
+      "さくら", "ひまわり", "チューリップ", "バラ", "あじさい", "たんぽぽ", "つばき",
+      "富士山", "川", "海", "空", "太陽", "月", "星", "雲", "雨"
+    ];
+
     // --- 状態管理・初期化 ---
     let userData = {};
     let logs = JSON.parse(localStorage.getItem('info_filter_logs') || '[]');
     let difficulty = localStorage.getItem('info_filter_diff') || 'NORMAL';
+
+    // テスト制御用
+    let targetWords = [];
+    let selectedWords = [];
+    let memoryTimer = null;
+    let reactionState = 'IDLE'; // IDLE, WAITING, READY
+    let reactionStartTime = 0;
+    let reactionTimes = [];
+    let reactionCount = 0;
 
     document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('difficulty-select').value = difficulty;
@@ -395,7 +424,7 @@
       const canceled = logs.filter(l => !l.viewed).length;
       document.getElementById('stat-cancel').innerText = canceled;
 
-      const memScores = logs.filter(l => l.memoryScore !== null).map(l => parseFloat(l.memoryScore));
+      const memScores = logs.filter(l => l.memoryScore !== null && l.memoryScore !== undefined).map(l => parseFloat(l.memoryScore));
       if (memScores.length > 0) {
         const avg = (memScores.reduce((a, b) => a + b, 0) / memScores.length).toFixed(1);
         document.getElementById('stat-memory').innerText = avg + '%';
@@ -404,7 +433,7 @@
       }
     }
 
-    // --- 入力・自己判断ロジック ---
+       // --- 入力・自己判断ロジック ---
     function processInput() {
       const target = document.getElementById('target-input').value.trim();
       if (!target) {
@@ -422,6 +451,7 @@
         reactionTime: null
       };
 
+      // ⚪ 特に必要ではない（白）の場合はタイマー（10秒/30秒待機）を開始
       if (userData.priority === '⚪ 特に必要ではない') {
         startTimer();
       } else {
@@ -429,9 +459,39 @@
       }
     }
 
+    function showDecision() {
+      document.getElementById('summary-text').innerHTML = 
+        `あなたは今、「<b>${userData.target}</b>」（${userData.app}）を開こうとしています。<br><br>` +
+        `理由：${userData.reason}<br>` +
+        `優先度：${userData.priority}`;
+      
+      // 黄色または白の場合のみ認知テスト案内テキストにする
+      const nextBtn = document.querySelector('#screen-decision .btn-primary');
+      if (userData.priority === '🟡 低' || userData.priority === '⚪ 特に必要ではない') {
+        nextBtn.innerText = "見る（認知テストを実施）";
+        nextBtn.onclick = startMemoryTest;
+      } else {
+        // 赤・オレンジの場合はテストをスキップして直接アプリを開く
+        nextBtn.innerText = "アプリを開く";
+        nextBtn.onclick = skipTestAndOpen;
+      }
+
+      showScreen('screen-decision');
+    }
+
+    // 赤・オレンジ（最優先・高）の場合のスキップ処理
+    function skipTestAndOpen() {
+      userData.viewed = true;
+      userData.memoryScore = null;
+      userData.reactionTime = null;
+      saveLog(userData);
+      openTargetApp();
+    }
+
+
     function startTimer() {
       showScreen('screen-timer');
-      let count = 30;
+      let count = 10;
       document.getElementById('timer-count').innerText = count;
       const timer = setInterval(() => {
         count--;
@@ -458,7 +518,147 @@
       showScreen('screen-home');
     }
 
-    
+    // ==========================================
+    // --- 1. 記憶力テスト ロジック ---
+    // ==========================================
+    function startMemoryTest() {
+      showScreen('screen-memory');
+      document.getElementById('memory-memorize-phase').style.display = 'block';
+      document.getElementById('memory-answer-phase').style.display = 'none';
+
+      let wordCount = 5;
+      let displayTime = 5;
+      if (difficulty === 'EASY') { wordCount = 3; displayTime = 5; }
+      if (difficulty === 'HARD') { wordCount = 6; displayTime = 3; }
+
+      // ランダムにターゲット単語を選出
+      const shuffled = [...WORD_POOL].sort(() => 0.5 - Math.random());
+      targetWords = shuffled.slice(0, wordCount);
+      selectedWords = [];
+
+      // 表示描画
+      const container = document.getElementById('target-words-container');
+      container.innerHTML = targetWords.map(w => `<div class="word-chip" style="background:#cbd5e1; font-weight:bold;">${w}</div>`).join('');
+
+      let timeLeft = displayTime;
+      document.getElementById('mem-timer').innerText = timeLeft;
+
+      if (memoryTimer) clearInterval(memoryTimer);
+      memoryTimer = setInterval(() => {
+        timeLeft--;
+        document.getElementById('mem-timer').innerText = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(memoryTimer);
+          showMemoryAnswerPhase(shuffled, wordCount);
+        }
+      }, 1000);
+    }
+
+    function showMemoryAnswerPhase(shuffledPool, wordCount) {
+      document.getElementById('memory-memorize-phase').style.display = 'none';
+      document.getElementById('memory-answer-phase').style.display = 'block';
+
+      // 選択肢用にダミーを追加してシャッフル (合計 9 個)
+      const choiceCount = 9;
+      const choices = shuffledPool.slice(0, choiceCount).sort(() => 0.5 - Math.random());
+
+      const container = document.getElementById('choice-words-container');
+      container.innerHTML = choices.map(w => `<div class="word-chip" onclick="toggleWordSelect(this, '${w}')">${w}</div>`).join('');
+    }
+
+    function toggleWordSelect(element, word) {
+      if (element.classList.contains('selected')) {
+        element.classList.remove('selected');
+        selectedWords = selectedWords.filter(w => w !== word);
+      } else {
+        element.classList.add('selected');
+        selectedWords.push(word);
+      }
+    }
+
+    function finishMemoryTest() {
+      // 正答率の計算
+      let correctCount = 0;
+      selectedWords.forEach(w => {
+        if (targetWords.includes(w)) correctCount++;
+      });
+
+      // 誤選ペナルティ考慮：ターゲット数に対する正答数の割合
+      let score = Math.round((correctCount / targetWords.length) * 100);
+      if (score > 100) score = 100;
+      userData.memoryScore = score;
+
+      startReactionTest();
+    }
+
+    // ==========================================
+    // --- 2. 反応速度テスト ロジック ---
+    // ==========================================
+    function startReactionTest() {
+      showScreen('screen-reaction');
+      reactionState = 'IDLE';
+      reactionTimes = [];
+      reactionCount = 0;
+      updateTapArea("画面が緑色になったら<br>素早くタップしてください！<br><br><b>[ タップして開始 ]</b>", "");
+    }
+
+    function updateTapArea(text, className) {
+      const area = document.getElementById('tap-area');
+      area.innerHTML = text;
+      area.className = 'tap-area ' + className;
+    }
+
+    function handleTap() {
+      if (reactionState === 'IDLE') {
+        // テスト開始：ランダム待機へ
+        reactionState = 'WAITING';
+        updateTapArea("赤色のまま待ってください...", "");
+        document.getElementById('tap-area').style.backgroundColor = '#fca5a5';
+
+        const waitTime = Math.floor(Math.random() * 2000) + 1500; // 1.5s - 3.5s
+        setTimeout(() => {
+          if (reactionState === 'WAITING') {
+            reactionState = 'READY';
+            reactionStartTime = Date.now();
+            updateTapArea("今すぐタップ！", "ready");
+          }
+        }, waitTime);
+
+      } else if (reactionState === 'WAITING') {
+        // フライング
+        reactionState = 'IDLE';
+        document.getElementById('tap-area').style.backgroundColor = '#e2e8f0';
+        updateTapArea("フライングです！<br>緑色になってからタップしてください。<br><br><b>[ 再開するにはタップ ]</b>", "");
+
+      } else if (reactionState === 'READY') {
+        // 正確にタップ成功
+        const elapsed = Date.now() - reactionStartTime;
+        reactionTimes.push(elapsed);
+        reactionCount++;
+
+        document.getElementById('tap-area').style.backgroundColor = '#e2e8f0';
+
+        if (reactionCount < 2) { // 2回計測
+          reactionState = 'IDLE';
+          updateTapArea(`1回目: ${elapsed} ms！<br><br><b>[ タップして2回目を開始 ]</b>`, "");
+        } else {
+          // 計測完了
+          const avgReaction = Math.round(reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length);
+          userData.reactionTime = avgReaction;
+          userData.viewed = true;
+
+          saveLog(userData);
+          finishAllTests();
+        }
+      }
+    }
+
+    function finishAllTests() {
+      document.getElementById('result-memory').innerText = userData.memoryScore;
+      document.getElementById('result-reaction').innerText = userData.reactionTime;
+      showScreen('screen-result');
+    }
+
     // --- アプリ遷移・データ保存 ---
     function openTargetApp() {
       const appUrls = {
