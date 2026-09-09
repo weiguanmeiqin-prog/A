@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>INFO FILTER - 自己判断支援アプリ</title>
+  <style>
+    :root {
+      --bg-color: #A8F8F9;
+      --card-bg: #ffffff;
+      --text-color: #2C3E50;
+      --primary-color: #008080;
+      --primary-hover: #006666;
+      --border-color: #cbd5e1;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      background: var(--card-bg);
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+      padding: 24px;
+      min-height: 560px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .screen {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    .screen.active {
+      display: flex;
+    }
+
+    h1, h2 {
+      text-align: center;
+      margin-bottom: 16px;
+      color: var(--text-color);
+    }
+
+    .subtitle {
+      text-align: center;
+      margin-bottom: 20px;
+      line-height: 1.6;
+      color: #555;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background-color: var(--primary-color);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background-color: transparent;
+      border: 2px solid var(--primary-color);
+      color: var(--primary-color);
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    input[type="text"], select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 15px;
+      background: #f8fafc;
+    }
+
+    .radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .radio-option {
+      display: flex;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      cursor: pointer;
+      background: #f8fafc;
+    }
+
+    .radio-option input {
+      margin-right: 12px;
+    }
+
+    .info-card {
+      background: #f1f5f9;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      line-height: 1.6;
+    }
+
+    .timer-display {
+      font-size: 64px;
+      font-weight: bold;
+      text-align: center;
+      color: var(--primary-color);
+      margin: 24px 0;
+    }
+
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 16px 0;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+
+    .word-chip {
+      padding: 10px 4px;
+      background: #e2e8f0;
+      border: 2px solid transparent;
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 13px;
+      user-select: none;
+    }
+
+    .word-chip.selected {
+      background: #ccfbf1;
+      border-color: var(--primary-color);
+      font-weight: bold;
+    }
+
+    .tap-area {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 12px;
+      background: #e2e8f0;
+      font-size: 22px;
+      font-weight: bold;
+      text-align: center;
+      cursor: pointer;
+      padding: 20px;
+      user-select: none;
+      min-height: 180px;
+    }
+
+    .tap-area.ready {
+      background: #86efac;
+      font-size: 36px;
+    }
+
+    .stat-box {
+      display: flex;
+      justify-content: space-around;
+      text-align: center;
+      margin-bottom: 16px;
+      background: #e0f2fe;
+      padding: 12px;
+      border-radius: 8px;
+    }
+
+    .stat-item p {
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    .stat-item b {
+      font-size: 18px;
+      color: var(--text-color);
+    }
+
+    .history-list {
+      max-height: 180px;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px;
+      margin-bottom: 12px;
+      font-size: 12px;
+    }
+
+    .history-item {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 6px 0;
+    }
+
+    .history-item:last-child {
+      border-bottom: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- 1. ホーム画面 & ダッシュボード -->
+    <div id="screen-home" class="screen active">
+      <h1>INFO FILTER</h1>
+      <p class="subtitle">情報を取り入れる前に、<br>一度立ち止まってみましょう。</p>
+      
+      <div class="stat-box">
+        <div class="stat-item"><p>フィルター利用</p><b id="stat-count">0</b>回</div>
+        <div class="stat-item"><p>見なかった選択</p><b id="stat-cancel">0</b>回</div>
+        <div class="stat-item"><p>平均記憶力</p><b id="stat-memory">-</b></div>
+      </div>
+
+      <div style="flex:1;"></div>
+      <button class="btn btn-primary" onclick="showScreen('screen-input')">情報フィルターをはじめる</button>
+      <button class="btn btn-secondary" onclick="showScreen('screen-history')">履歴・データ出力</button>
+      <button class="btn btn-secondary" onclick="showScreen('screen-settings')" style="border-color:#94a3b8; color:#475569;">設定（難易度変更）</button>
+    </div>
+
+    <!-- 2. 設定画面 -->
+    <div id="screen-settings" class="screen">
+      <h2>設定</h2>
+      <div class="form-group">
+        <label>記憶力テストの難易度</label>
+        <select id="difficulty-select" onchange="saveSettings()">
+          <option value="EASY">EASY (5個)</option>
+          <option value="NORMAL" selected>NORMAL (8個)</option>
+          <option value="HARD">HARD (12個)</option>
+          <option value="EXPERT">EXPERT (16個)</option>
+        </select>
+      </div>
+      <div style="flex:1;"></div>
+      <button class="btn btn-primary" onclick="showScreen('screen-home')">設定を保存して戻る</button>
+    </div>
+
+    <!-- 3. 情報入力画面 -->
+    <div id="screen-input" class="screen">
+      <h2>目的と優先度の確認</h2>
+      <div class="form-group">
+        <label>対象アプリ</label>
+        <select id="app-select">
+          <option>YouTube</option>
+          <option>Instagram</option>
+          <option>TikTok</option>
+          <option>X (Twitter)</option>
+          <option>Safari / Web</option>
+          <option>ニュースアプリ</option>
+          <option>その他</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Q1. 何を見ようとしていますか？</label>
+        <input type="text" id="target-input" placeholder="例：猫の動画を見る、〇〇について調べる">
+      </div>
+      <div class="form-group">
+        <label>Q2. なぜ見ようとしていますか？</label>
+        <select id="reason-select">
+          <option>必要な情報を調べるため</option>
+          <option>誰かから連絡が来た</option>
+          <option>勉強・仕事のため</option>
+          <option>趣味</option>
+          <option>暇つぶし</option>
+          <option>なんとなく</option>
+          <option>その他</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Q3. この情報の優先度は？</label>
+        <div class="radio-group">
+          <label class="radio-option"><input type="radio" name="priority" value="🔴 最優先"> 🔴 最優先（今すぐ必要）</label>
+          <label class="radio-option"><input type="radio" name="priority" value="🟠 高"> 🟠 高（近いうちに見たい）</label>
+          <label class="radio-option"><input type="radio" name="priority" value="🟡 低" checked> 🟡 低（後でも問題ない）</label>
+          <label class="radio-option"><input type="radio" name="priority" value="⚪ 特に必要ではない"> ⚪ 特に必要ではない（なんとなく）</label>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="processInput()">確認画面へ</button>
+    </div>
+
+    <!-- 4. 30秒タイマー画面 -->
+    <div id="screen-timer" class="screen">
+      <h2>ちょっとだけ待ってみよう</h2>
+      <div class="timer-display" id="timer-count">30</div>
+      <p class="subtitle">本当に今見る必要があるか、<br>立ち止まっています。</p>
+    </div>
+
+    <!-- 5. 自己判断画面 -->
+    <div id="screen-decision" class="screen">
+      <h2>自己判断</h2>
+      <div class="info-card">
+        <p id="summary-text"></p>
+      </div>
+      <p class="subtitle" style="font-weight: bold;">本当に今見る必要がありますか？</p>
+      <div style="flex:1;"></div>
+      <button class="btn btn-primary" onclick="startMemoryTest()">見る（認知テストを実施）</button>
+      <button class="btn btn-secondary" onclick="cancelAction()">あとで見る / もういい</button>
+    </div>
+
+    <!-- 6. 記憶力テスト画面 -->
+    <div id="screen-memory" class="screen">
+      <h2>記憶力チェック</h2>
+      <div id="memory-memorize-phase">
+        <p class="subtitle">以下の単語を覚えてください (<span id="mem-timer">5</span>秒)</p>
+        <div class="grid-container" id="target-words-container"></div>
+      </div>
+      <div id="memory-answer-phase" style="display:none;">
+        <p class="subtitle">表示された単語を選んでください</p>
+        <div class="grid-container" id="choice-words-container"></div>
+        <button class="btn btn-primary" onclick="finishMemoryTest()">次へ（反応速度テスト）</button>
+      </div>
+    </div>
+
+    <!-- 7. 反応速度テスト画面 -->
+    <div id="screen-reaction" class="screen">
+      <h2>反応速度チェック</h2>
+      <div class="tap-area" id="tap-area" onclick="handleTap()">
+        タップして開始
+      </div>
+    </div>
+
+    <!-- 8. 結果 & アプリ起動画面 -->
+    <div id="screen-result" class="screen">
+      <h2>今回の測定結果</h2>
+      <div class="info-card" style="text-align: center; margin-top: 16px;">
+        <p style="font-size: 16px; margin-bottom: 8px;">記憶力正答率: <b id="result-memory">0</b>%</p>
+        <p style="font-size: 16px;">平均反応速度: <b id="result-reaction">0</b> ms</p>
+      </div>
+      <p class="subtitle">自分自身で選択し、目的を確認しました。</p>
+      <div style="flex:1;"></div>
+      <button class="btn btn-primary" onclick="openTargetApp()">対象アプリを開く</button>
+      <button class="btn btn-secondary" onclick="showScreen('screen-home')">ホームに戻る</button>
+    </div>
+
+    <!-- 9. 履歴 & CSV出力画面 -->
+    <div id="screen-history" class="screen">
+      <h2>行動履歴 & 探究データ</h2>
+      <div class="history-list" id="history-container">
+        <!-- 履歴要素がJSで挿入されます -->
+      </div>
+      <button class="btn btn-primary" onclick="exportCSV()">探究用CSVデータをダウンロード</button>
+      <button class="btn btn-secondary" onclick="clearHistory()" style="border-color:#ef4444; color:#ef4444;">履歴をクリア</button>
+      <button class="btn btn-secondary" onclick="showScreen('screen-home')">戻る</button>
+    </div>
+
+  </div>
+
+  <script>
+    // --- 状態管理・初期化 ---
+    let userData = {};
+    let logs = JSON.parse(localStorage.getItem('info_filter_logs') || '[]');
+    let difficulty = localStorage.getItem('info_filter_diff') || 'NORMAL';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('difficulty-select').value = difficulty;
+      updateStats();
+    });
+
+    function saveSettings() {
+      difficulty = document.getElementById('difficulty-select').value;
+      localStorage.setItem('info_filter_diff', difficulty);
+    }
+
+    function showScreen(screenId) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(screenId).classList.add('active');
+      if (screenId === 'screen-home') updateStats();
+      if (screenId === 'screen-history') renderHistory();
+    }
+
+    // --- ダッシュボード更新 ---
+    function updateStats() {
+      document.getElementById('stat-count').innerText = logs.length;
+      const canceled = logs.filter(l => !l.viewed).length;
+      document.getElementById('stat-cancel').innerText = canceled;
+
+      const memScores = logs.filter(l => l.memoryScore !== null).map(l => parseFloat(l.memoryScore));
+      if (memScores.length > 0) {
+        const avg = (memScores.reduce((a, b) => a + b, 0) / memScores.length).toFixed(1);
+        document.getElementById('stat-memory').innerText = avg + '%';
+      } else {
+        document.getElementById('stat-memory').innerText = '-';
+      }
+    }
+
+    // --- 入力・自己判断ロジック ---
+    function processInput() {
+      const target = document.getElementById('target-input').value.trim();
+      if (!target) {
+        alert('何を見ようとしているか入力してください');
+        return;
+      }
+      userData = {
+        date: new Date().toLocaleString('ja-JP'),
+        app: document.getElementById('app-select').value,
+        target: target,
+        reason: document.getElementById('reason-select').value,
+        priority: document.querySelector('input[name="priority"]:checked').value,
+        viewed: false,
+        memoryScore: null,
+        reactionTime: null
+      };
+
+      if (userData.priority === '⚪ 特に必要ではない') {
+        startTimer();
+      } else {
+        showDecision();
+      }
+    }
+
+    function startTimer() {
+      showScreen('screen-timer');
+      let count = 30;
+      document.getElementById('timer-count').innerText = count;
+      const timer = setInterval(() => {
+        count--;
+        document.getElementById('timer-count').innerText = count;
+        if (count <= 0) {
+          clearInterval(timer);
+          showDecision();
+        }
+      }, 1000);
+    }
+
+    function showDecision() {
+      document.getElementById('summary-text').innerHTML = 
+        `あなたは今、「<b>${userData.target}</b>」（${userData.app}）を開こうとしています。<br><br>` +
+        `理由：${userData.reason}<br>` +
+        `優先度：${userData.priority}`;
+      showScreen('screen-decision');
+    }
+
+    function cancelAction() {
+      userData.viewed = false;
+      saveLog(userData);
+      alert("今回はここまで。\nあなた自身で選択しました。\n記録：情報を取り入れなかった");
+      showScreen('screen-home');
+    }
+
+    // --- 記憶力テスト（難易度対応） ---
+    const wordPool = ['りんご', '時計', '海', '電車', '鉛筆', '猫', '山', '本', '太陽', '花', '川', '空', '星', '鍵', '犬', '月', '鳥', '木', '雨', '風', '車', '船', '街', '家'];
+    let targetWords = [];
+    let selectedWords = [];
+
+    const diffMap = { EASY: 5, NORMAL: 8, HARD: 12, EXPERT: 16 };
+
+    function startMemoryTest() {
+      showScreen('screen-memory');
+      document.getElementById('memory-memorize-phase').style.display = 'block';
+      document.getElementById('memory-answer-phase').style.display = 'none';
+      selectedWords = [];
+
+      const count = diffMap[difficulty] || 8;
+      const shuffled = [...wordPool].sort(() => 0.5 - Math.random());
+      targetWords = shuffled.slice(0, count);
+      const choicesCount = Math.min(count + 6, wordPool.length);
+      const choices = shuffled.slice(0, choicesCount).sort(() => 0.5 - Math.random());
+
+      const targetContainer = document.getElementById('target-words-container');
+      targetContainer.innerHTML = targetWords.map(w => `<div class="word-chip">${w}</div>`).join('');
+
+      let timerSec = 5;
+      document.getElementById('mem-timer').innerText = timerSec;
+      const timer = setInterval(() => {
+        timerSec--;
+        document.getElementById('mem-timer').innerText = timerSec;
+        if (timerSec <= 0) {
+          clearInterval(timer);
+          document.getElementById('memory-memorize-phase').style.display = 'none';
+          document.getElementById('memory-answer-phase').style.display = 'block';
+          renderChoices(choices);
+        }
+      }, 1000);
+    }
+
+    function renderChoices(choices) {
+      const choiceContainer = document.getElementById('choice-words-container');
+      choiceContainer.innerHTML = choices.map(w => `<div class="word-chip" onclick="toggleWord(this, '${w}')">${w}</div>`).join('');
+    }
+
+    function toggleWord(el, word) {
+      if (selectedWords.includes(word)) {
+        selectedWords = selectedWords.filter(w => w !== word);
+        el.classList.remove('selected');
+      } else {
+        selectedWords.push(word);
+        el.classList.add('selected');
+      }
+    }
+
+    function finishMemoryTest() {
+      const correctCount = selectedWords.filter(w => targetWords.includes(w)).length;
+      userData.memoryScore = ((correctCount / targetWords.length) * 100).toFixed(1);
+      startReactionTest();
+    }
+
+    // --- 反応速度テスト ---
+    let reactionTimes = [];
+    let reactionState = 'ready';
+    let startTime = 0;
+    let timerId = null;
+
+    function startReactionTest() {
+      showScreen('screen-reaction');
+      reactionTimes = [];
+      reactionState = 'ready';
+      updateTapArea('タップして開始');
+    }
+
+    function updateTapArea(text, isReady = false) {
+      const area = document.getElementById('tap-area');
+      area.innerText = text;
+      if (isReady) {
+        area.classList.add('ready');
+      } else {
+        area.classList.remove('ready');
+      }
+    }
+
+    function handleTap() {
+      if (reactionState === 'ready') {
+        reactionState = 'waiting';
+        updateTapArea('画面が変わるまで待ってください...');
+        const delay = Math.floor(Math.random() * 2000) + 1500;
+        timerId = setTimeout(() => {
+          reactionState = 'canTap';
+          startTime = Date.now();
+          updateTapArea('TAP!', true);
+        }, delay);
+      } else if (reactionState === 'waiting') {
+        clearTimeout(timerId);
+        reactionState = 'ready';
+        updateTapArea('フライング！\nもう一度タップしてください');
+      } else if (reactionState === 'canTap') {
+        const elapsed = Date.now() - startTime;
+        reactionTimes.push(elapsed);
+        if (reactionTimes.length < 5) {
+          reactionState = 'ready';
+          updateTapArea(`${elapsed} ms!\n（${reactionTimes.length}/5回完了）\nタップして次へ`);
+        } else {
+          showResults();
+        }
+      }
+    }
+
+    function showResults() {
+      const avgReaction = (reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length).toFixed(1);
+      userData.reactionTime = avgReaction;
+      userData.viewed = true;
+
+      saveLog(userData);
+
+      document.getElementById('result-memory').innerText = userData.memoryScore;
+      document.getElementById('result-reaction').innerText = avgReaction;
+      showScreen('screen-result');
+    }
+
+    // --- アプリ遷移・データ保存 ---
+    function openTargetApp() {
+      const appUrls = {
+        'YouTube': 'https://www.youtube.com',
+        'Instagram': 'https://www.instagram.com',
+        'TikTok': 'https://www.tiktok.com',
+        'X (Twitter)': 'https://x.com',
+        'Safari / Web': 'https://www.google.com'
+      };
+      const url = appUrls[userData.app] || 'https://www.google.com';
+      window.open(url, '_blank');
+    }
+
+    function saveLog(log) {
+      logs.unshift(log);
+      localStorage.setItem('info_filter_logs', JSON.stringify(logs));
+    }
+
+    function renderHistory() {
+      const container = document.getElementById('history-container');
+      if (logs.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color:#94a3b8;">履歴がありません</p>';
+        return;
+      }
+      container.innerHTML = logs.map(l => `
+        <div class="history-item">
+          <b>${l.date} - ${l.app}</b><br>
+          内容: ${l.target} (${l.priority})<br>
+          結果: ${l.viewed ? `見た (記憶:${l.memoryScore}% 反応:${l.reactionTime}ms)` : '見なかった'}
+        </div>
+      `).join('');
+    }
+
+    function clearHistory() {
+      if (confirm('履歴をすべて削除しますか？')) {
+        logs = [];
+        localStorage.removeItem('info_filter_logs');
+        renderHistory();
+        updateStats();
+      }
+    }
+
+    // --- CSVデータ出力 ---
+    function exportCSV() {
+      if (logs.length === 0) {
+        alert('出力するデータがありません');
+        return;
+      }
+      let csvContent = "data:text/csv;charset=utf-8,日時,アプリ,内容,理由,優先度,閲覧したか,記憶力正答率(%),平均反応速度(ms)\n";
+      logs.forEach(l => {
+        csvContent += `"${l.date}","${l.app}","${l.target}","${l.reason}","${l.priority}","${l.viewed ? 'はい' : 'いいえ'}","${l.memoryScore || ''}","${l.reactionTime || ''}"\n`;
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `info_filter_data_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+</body>
+</html>
